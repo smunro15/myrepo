@@ -1,0 +1,293 @@
+---
+title: "NEON Project"
+author: "Sarah Munro"
+output: html_notebook
+---
+
+
+## Install packages
+```{r}
+library(tidyverse)
+library(neonUtilities)
+library(lubridate)
+```
+
+## Load Data Periphyton, seston, phytoplankton chemical properties
+```{r}
+#PeriphytonSestonPhytoplanton <- loadByProduct(dpID = "DP1.20163.001", package = "basic", site = c("ARIK"))
+```
+
+```{r}
+#save(PeriphytonSestonPhytoplanton, file= "data/PeriphytonSestonPhytoplanton.Rdata")
+load("data/PeriphytonSestonPhytoplanton.Rdata")
+
+
+```
+
+## Load PAR
+```{r}
+#PARwatersurface <- loadByProduct(dpID = "DP1.20042.001", package = "basic", site = c("ARIK"))
+```
+
+```{r}
+# save(PARwatersurface, file= "data/PARwatersurface.Rdata")
+load("data/PARwatersurface.Rdata")
+
+
+```
+
+#Look at table
+```{r}
+ARIKBioMass <- PeriphytonSestonPhytoplanton$alg_algaeExternalLabDataPerSample
+ARIKHabitat <- PeriphytonSestonPhytoplanton$alg_fieldData
+```
+
+#Remove columns with NA
+```{r}
+ARIKBioMass <- filter(ARIKBioMass,!is.na(ARIKBioMass$analyteConcentration))
+ARIKBioMass <- filter(ARIKBioMass,!is.na(ARIKBioMass$sampleCode))
+ARIKBioMass <- filter(ARIKBioMass,!is.na(ARIKBioMass$acidTreatment))
+```
+#Remove unwanted columns
+```{r}
+ARIKBioMass <- ARIKBioMass %>%
+  select(uid, siteID, collectDate, sampleID, sampleCondition, analysisDate, analyte, analyteConcentration, plantAlgaeLabUnits, testMethod)
+ARIKHabitat <- ARIKHabitat %>%
+  select(uid, domainID, siteID, aquaticSiteType,decimalLatitude, decimalLongitude, collectDate, parentSampleID, habitatType, algalSampleType)
+```
+
+## Make decimal date and put into table
+```{r}
+ARIKBioMass <-
+  ARIKBioMass %>%
+  mutate(decimaldate = decimal_date(ARIKBioMass$collectDate))
+ARIKHabitat <-
+  ARIKHabitat %>%
+  mutate(decimaldate = decimal_date(ARIKHabitat$collectDate))
+```
+
+## Put carbon into one table
+```{r}
+carbon <-ARIKBioMass %>%
+  filter(analyte == c("carbon"))
+```
+
+# Plotting carbon 
+```{r}
+ggplot(data =carbon) +
+  geom_line(aes(x = decimaldate, y = analyteConcentration))
+```
+# PLOTTING CARBON FROM 7/18 - 3/21
+
+# AVG carbon
+```{r}
+carbon$Date <- as.Date(carbon$collectDate)
+
+AVG_Carbon <- carbon %>%
+  group_by(Date) %>%
+  summarise(analyteConcentration = mean(analyteConcentration))
+```
+
+# GRAPH 2 AVG CARBON JULY 2018- MARCH 2021
+```{r}
+AVG_Carbon %>%
+  ggplot(aes(x = Date, y= analyteConcentration)) +
+         geom_col()
+```
+
+
+# PAR
+
+
+## Load Data Photosynthetically active radiation (PAR)
+```{r}
+# PAR <- loadByProduct(dpID = "DP1.00024.001", package = "basic", site = c("ARIK"))
+# as of12/6 changed to dif dataset, loaded above
+```
+#Save PAR data
+```{r}
+#save(PAR, file= "data/Photosynactrad.Rdata")
+load("data/PARwatersurface.Rdata")
+
+```
+# Look at table
+```{r}
+ParWtr5 <- PARwatersurface$PARWS_5min
+Parwtr30 <- PARwatersurface$PARWS_30min
+Parwtr30
+```
+##Remove rows with NA 
+```{r}
+Par_wtr30<- filter(Parwtr30, !is.na(Parwtr30$PARMean))
+Par_wtr30
+
+```
+
+# remove unnecessary cols
+```{r}
+Par_wtr30 <- Par_wtr30 %>%
+  select(startDateTime, PARMean, PARMinimum, PARMaximum, PARStdErMean)
+Par_wtr30
+```
+
+# add a column for decimal data
+```{r}
+Par_wtr30 <-
+  Par_wtr30 %>%
+  mutate(decimaldate = decimal_date(Par_wtr30$startDateTime))
+Par_wtr30
+
+```
+
+
+# filter from july 2018- march 2021 to overlap w biomass
+```{r}
+Par_wtr30 <- Par_wtr30 %>%
+  filter(between(decimaldate, 2018.496, 2021.162 ))
+
+Par30_coupledays <- Par30_coupledays %>%
+  filter(between(decimaldate, 2018.496, 2021.162 ))
+
+```
+
+
+
+## PLOTTING MEAN OVER TIME OF 30 MIN INTERVAL
+```{r}
+Par_wtr30 %>%
+    ggplot(aes(x = decimaldate,y = PARMean)) +
+  geom_line()
+
+```
+
+
+## FILTER PAR IN 30MIN FOR A COUPLE DAYS
+```{r}
+Par30_coupledays <- Par30_coupledays%>%
+  filter(between(decimaldate, 2018.496, 2018.504))
+```
+
+#PLOT couple days
+```{r}
+
+Par30_coupledays %>%
+    ggplot(aes(x = decimaldate,y = PARMean)) +
+  geom_line()
+
+
+```
+
+# adding column #AVG PAR GRAPH 3 OVERLAP W CARBON JULY 2018-MARCH 2021
+```{r}
+Par_wtr30$Date <- as.Date(Par_wtr30$startDateTime)
+
+AVG_Par <- Par_wtr30 %>%
+  group_by(Date) %>%
+  summarise(meanPar = mean(PARMean))
+
+
+AVG_Par %>%
+  ggplot(aes(x = Date, y = meanPar, color = "blue")) +
+  geom_line()
+```
+
+# PAR & PRECIP filter 5/14-5/19
+```{r}
+Parwtr30 <-
+  Parwtr30 %>%
+  mutate(decimaldate = decimal_date(Parwtr30$startDateTime))
+Parwtr30
+
+
+Parwtr30 <- Parwtr30 %>%
+  filter(between(decimaldate,2016.366, 2016.382 ))
+
+PRECIP_30$Date <- as.Date(PRECIP_30$startDateTime)
+
+SumOfPrecip <- PRECIP_30 %>%
+  group_by(Date) %>%
+  summarise(priPrecipBulk = sum(priPrecipBulk))
+
+Parwtr30$Date <- as.Date(Parwtr30$startDateTime)
+
+AVGPatwtr30_precip <- Parwtr30 %>%
+ group_by(Date) %>%
+  summarise(meanPar = mean(PARMean,na.rm = TRUE))
+
+```
+ 
+ # PLOT PRECIP 5/14-5/19
+```{r}
+SumOfPrecip %>%
+  ggplot(aes(x = Date, y = priPrecipBulk, color = "blue")) +
+  geom_line()
+```
+ # PLOT AVG PAR 5/14-5/19
+```{r}
+AVGPatwtr30_precip %>%
+  ggplot(aes(x = Date, y = meanPar, color = "blue")) +
+  geom_line() +
+  scale_x_date(limits = as.Date(c("2016-05-14", "2016-05-19")))
+```
+ 
+```
+ 
+
+
+``
+
+# limiting rows
+```{r}
+df2 <- ARIKPar1[-(161:3333679),]
+
+ARIK_PAR1 <- df2
+
+df2 <- ARIKPar30[-(161:111172),]
+
+ARIK_PAR30 <- df2
+
+```
+
+
+### Load Data Precipitation
+```{r}
+Precipitation <- loadByProduct(dpID = "DP1.00006.001", package = "basic", site = c("ARIK"))
+```
+## Save data
+```{r}
+#save(Precipitation, file= "data/PrecipitationData.Rdata")
+load("data/PrecipitationData.Rdata")
+```
+
+#Look at table 
+```{r}
+PRECIP30 <- Precipitation$PRIPRE_30min
+PRECIP5 <- Precipitation$PRIPRE_5min
+```
+
+#REMOVE NA
+```{r}
+PRECIP30<- filter(PRECIP30, !is.na(PRECIP30$priPrecipBulk))
+
+PRECIP5<- filter(PRECIP5, !is.na(PRECIP5$priPrecipBulk))
+```
+
+#removing 
+```{r}
+df2 <- PRECIP5[-(161:585240),]
+
+PRECIP_5 <-df2
+
+df2 <- PRECIP30[-(161:97575),]
+
+PRECIP_30 <- df2
+
+```
+ 
+```{r}
+
+```
+
+```
+ 
+
